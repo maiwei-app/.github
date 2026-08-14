@@ -73,6 +73,48 @@ Descubrimos en vivo que GitHub bloquea la autoaprobación de PRs (ni por API ni 
 - **Nota para el resto de la migración**: cualquier PR que abra en repos de `maiwei-app` de aquí en adelante debe usar este patrón (token de instalación de la App), no el token personal de `colomr-cc`, o volveremos a bloquearnos
 - Pendiente (cuando migremos `colomr.cc`): decidir si su `AUTOMATION_APP_PRIVATE_KEY`/`APP_CLIENT_ID` locales se borran (ya cubiertos por los de la org) — la key vieja ahí ya no vale, quedó huérfana
 
+## Aislamiento de maibot (completado 2026-08-14)
+
+**Contexto:** La App ahora se llama `maibot-app` (vocación de agente). Para evitar que Claude Code pueda ejecutar comandos con credenciales del usuario, se implementó aislamiento a nivel de OS en WSL2.
+
+- [x] ✅ Usuario `maibot` creado en WSL2 (home: `/home/maibot`)
+- [x] ✅ Clave privada copiada a `~maibot/.ssh/maibot.pem` (permisos 600, propiedad maibot:maibot)
+- [x] ✅ SSH config configurado (`~maibot/.ssh/config` → usa maibot.pem para GitHub)
+- [x] ✅ JWT generation implementado (genera tokens de instalación automáticamente)
+- [x] ✅ GitHub CLI autenticación: Token de instalación configurado en `~maibot/.config/gh/hosts.yml`
+- [x] ✅ Permisos verificados en maibot-app: Read metadata, R/W code, R/W pull requests (NO write access to main)
+- **Validación pending**: Próxima sesión, probar PR creation desde usuario maibot como `maibot-app[bot]`
+
+**Arquitectura:**
+- **fcolomer** (user): trabajo interactivo, sin acceso a credenciales de la App
+- **maibot** (user): ejecuta acciones de CI/CD (git push, PR creation) con credenciales del bot
+- Seguridad por aislamiento (OS), no por confianza (IA)
+
+---
+
+## Sem-Ver / Release-Please (pendiente implementación)
+
+**Estado:** Política definida en `~/.claude/CLAUDE.md` (MANDATORY, sección 10), NO IMPLEMENTADA en repos aún.
+
+**Lo que existe:**
+- [x] ✅ Política fijada: Conventional Commits + release-please-action + sem-ver tags
+- [x] ✅ Workflows reusables: `ci-python.yml`, `ci-flutter.yml`, `ci-hugo.yml`, `sonar-scan.yml`, `no-ai-attribution.yml` en `maiwei-workflows`
+- [ ] ⬜ `release-please.yml` workflow (NO existe, backlog post-migración según MIGRATION_CHECKLIST line 44)
+
+**Lo que falta (bloqueante para releases):**
+- [ ] ⬜ `.release-please-config.json` (configuración global de sem-ver, tags, canales)
+- [ ] ⬜ Activar commitlint en CI para validar Conventional Commits format (`feat:`, `fix:`, `BREAKING CHANGE:`)
+- [ ] ⬜ Integrar `google/release-please-action` en workflows de cada repo (detecta cambios, auto-crea tags v1.2.3)
+- [ ] ⬜ Configurar tags múltiples: v1.2.3 (fija), v1 (última de serie), latest (global)
+- [ ] ⬜ Linter anti-SHA en CI: rechaza workflows con acciones pinneadas por SHA (`@61a6322`), solo acepta tags sem-ver (`@v4`, `@v4.2.1`)
+
+**Próximos pasos:**
+1. Implementar release-please en 1 repo piloto (`dev-to-backup` — simplest)
+2. Validar que los tags se crean automáticamente post-merge
+3. Extender a repos restantes
+
+---
+
 ## Migración por repo (ordenado por prioridad)
 
 🚫 `fles`, `mainframes`, `notebooks` — excluidos (ver Decisiones fijadas), se quedan en `colomr-cc` personal, sin acción.
