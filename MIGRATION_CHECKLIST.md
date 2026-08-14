@@ -122,16 +122,18 @@ Descubrimos en vivo que GitHub bloquea la autoaprobación de PRs (ni por API ni 
 🚫 `colomr-cc` (repo del README de perfil) — excluido (ver Decisiones fijadas), se queda en `colomr-cc` personal. Mantiene `SONAR_TOKEN`/`DEVTO_API_KEY` locales, mismo valor que los de org, se rotan a la vez en ambos sitios.
 
 #### Repo: `dev-to-backup` (Complejidad: 3, CI simple + 1 secret duplicado)
-- [ ] ⬜ Transfer repo a maiwei-app
-- [ ] ⬜ Verificar redirect URL antigua funciona
+> Estado a 2026-08-14: transfer y buena parte del post-transfer ya ejecutados en una sesión anterior; este bloque se corrige para reflejarlo. Ver nota de PR #3 abajo antes de continuar.
+- [x] ✅ Transfer repo a maiwei-app — confirmado, `repos/colomr-cc/dev-to-backup` redirige a `maiwei-app/dev-to-backup`
+- [ ] ⬜ Verificar redirect URL antigua funciona — no confirmado explícitamente (solo verificado el redirect de la API, falta el de la URL web)
 - [ ] ⬜ Actualizar remote local (si aplica)
-- [ ] ⬜ Asignar custom property `ci-profile=python-quality`, `sonar-enabled=false`
-- [ ] ⬜ Activar `delete_branch_on_merge`
-- [ ] ⬜ Migrar `backup.yml` a usar `ci-python.yml` reusable
+- [x] ✅ Asignar custom property `ci-profile=python-quality`, `sonar-enabled=false` — verificado vía API
+- [x] ✅ Activar `delete_branch_on_merge` — verificado vía API
+- [x] ✅ Migrar `backup.yml`/`ci.yml` a usar `ci-python.yml` reusable — presente en `main`
 - [ ] ⬜ Verificar CI usa `DEVTO_API_KEY` org (ya no repo-level)
 - [ ] ⬜ Borrar secret `DEVTO_API_KEY` del repo
 - [ ] ⬜ Verificar ruleset org-wide aplica correctamente
 - [ ] ⬜ Smoke test: push → PR → checks verdes → merge → rama borrada
+- ⚠️ **PR #3 abierta y sin resolver** (`sonar/dev-to-backup`, autora `maibot-app[bot]`, creada 2026-08-13T21:32): añade Sonar CI-based analysis a este repo — **fuera del alcance original de este bloque** (la custom property sigue en `sonar-enabled=false`; añadir Sonar aquí es una decisión pendiente de confirmar, no un paso ya acordado). Checks en rojo (`quality/quality` y `SonarCloud Code Analysis`) por causa ya diagnosticada: la PR corrió contra una versión de `maiwei-app/workflows` anterior al fix de `c2f1224` (2026-08-14T00:13) que reemplazó SHAs rotos por tags sem-ver y excluyó `.github/**` del análisis Sonar. Pendiente: decidir si se re-lanzan los checks para confirmar que ahora pasan, o si se cierra la PR por estar fuera de alcance de este bloque.
 
 #### Repo: `colomr-v1-theme` (Complejidad: 3, CI + Sonar Automatic → migrar a CI-based)
 - [ ] ⬜ Transfer repo a maiwei-app
@@ -147,6 +149,7 @@ Descubrimos en vivo que GitHub bloquea la autoaprobación de PRs (ni por API ni 
 - [ ] ⬜ Smoke test: push → PR → checks verdes → merge → rama borrada
 
 #### Repo: `chameleon` (Complejidad: 5, privado, primera vez con protección real)
+- ⚠️ **Bloqueado**: `repos/colomr-cc/chameleon` devuelve 404 tanto vía API con el token de instalación de `maibot-app` como en `repos/maiwei-app/chameleon`, y no aparece en el listado público de repos de `colomr-cc`. Al ser privado, puede ser que la instalación de la App en `colomr-cc` no tenga acceso concedido a este repo (`repository_selection: selected` sin incluirlo), o que el repo ya no exista/se haya renombrado. Requiere confirmación del desarrollador (permisos de admin) antes de continuar con este bloque.
 - [ ] ⬜ Transfer repo a maiwei-app
 - [ ] ⬜ Verificar redirect URL antigua funciona
 - [ ] ⬜ Actualizar remote local (si aplica)
