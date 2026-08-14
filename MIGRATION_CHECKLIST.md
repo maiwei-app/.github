@@ -44,7 +44,7 @@
   - Backlog post-migración: `release-please.yml` (versionado), `inline-comments.yml`
 - [x] ✅ Definir schema de custom properties en la org (verificado vía API):
   - [x] ✅ `ci-profile`: `python-quality | flutter-quality | hugo-static | none`
-  - [x] ✅ `sonar-enabled`: `true | false`
+  - [x] ✅ `sonar-enabled`: `true | false` — **doble propósito desde 2026-08-14**: además de indicar si el `ci.yml` del repo llama a `sonar-scan.yml`, es ahora también el criterio de targeting del ruleset "Require SonarCloud Quality Gate" (ver más abajo). Todo repo con Sonar wired en su CI debe tener esta property en `true`, o el check dejará de ser bloqueante para mergear aunque corra igualmente. Repos verificados con `sonar-enabled=true`: `dev-to-backup`, `repo-template`, `workflows`. `.github` se queda deliberadamente en `false`/sin valor (no tiene CI ni código que analizar)
 - [x] ✅ Crear repo `maiwei-app/repo-template` (`is_template: true`): `ci.yml` cableado a `no-ai-attribution`+`ci-python`+`sonar-scan`, `.github/dependabot.yml`, `sonar-project.properties` (placeholder), `README.md`, `LICENSE` (GPL-3.0, política: público=GPL-3.0, privado/SaaS=sin LICENSE, BSL 1.1 si algún día se abre un SaaS). `delete_branch_on_merge: true` y custom properties (`ci-profile=python-quality`, `sonar-enabled=true`) preseteadas. **No** incluye CODEOWNERS (se hereda del `.github` org). Verificado vía API (`git/trees`, `properties/values`)
 - Nota: CODEOWNERS se omite intencionadamente del template — lo hereda de `maiwei-app/.github`
 - [x] ✅ Crear ruleset org-wide "Protect default branch" (id `20768236`, `enforcement: active`, target `~ALL` repos / `~DEFAULT_BRANCH`):
@@ -52,10 +52,17 @@
   - [ ] ⬜ **Post-migración (fine-tuning)**: `required_signatures` (firma GPG) — se deja para cuando la migración esté estable, para no mezclar dos fuentes de fricción
   - [x] ✅ Block force-push (`non_fast_forward`)
   - [x] ✅ Restrict branch deletion (`deletion`)
-  - [ ] ⬜ Required status checks (`quality`/`sonar` por `ci-profile`/`sonar-enabled`) — pendiente hasta tener un run real por repo migrado
   - [x] ✅ Required workflow: `no-ai-attribution.yml` — nota técnica: tuvo que llevar trigger `pull_request` propio además de `workflow_call` (GitHub lo exige para "required workflows" en rulesets, es un mecanismo distinto a `uses:`). Se quitó la llamada duplicada del `ci.yml` del `repo-template`
   - [ ] ⬜ Required workflow: `sonar-scan.yml` — no aplicable como "required workflow" (necesita `secrets`/`inputs` por repo), se mantiene como llamada `uses:` en cada `ci.yml`, no vía ruleset
   - Sin bypass actors
+  - ⚠️ **Corregido 2026-08-14**: este ruleset llegó a tener el status check `SonarCloud Code Analysis` como required, aplicando a `~ALL` repos sin condición. Rompió la primera PR en un repo sin código (`maiwei-app/.github`, sin CI propio): el check nunca se reportaba y la PR quedaba bloqueada para siempre ("Expected — Waiting for status to be reported"). El check de Sonar se sacó de aquí y se movió al ruleset dedicado de abajo.
+
+- [x] ✅ Crear ruleset org-wide **"Require SonarCloud Quality Gate"** (nuevo, 2026-08-14) — separado del anterior a propósito, porque el targeting por repositorio en GitHub Rulesets es todo-o-nada por ruleset: no se puede condicionar una regla suelta dentro de un ruleset ya targeteado a `~ALL`.
+  - Target repositories: **Matching a filter** → `props.sonar-enabled:true` (dinámico: cualquier repo futuro con esa property en `true` queda incluido automáticamente, sin tocar el ruleset)
+  - Única regla activa: Require status checks to pass → `SonarCloud Code Analysis`
+  - Sin bypass actors
+  - A fecha de creación matchea 3 repos: `dev-to-backup`, `repo-template`, `workflows`
+  - El resto de protecciones (PR obligatoria, no force-push, no borrado de rama, no-ai-attribution) las sigue cubriendo el ruleset universal de arriba, que aplica a `~ALL` sin condición — este ruleset nuevo solo añade la exigencia de Sonar encima, donde aplica
 
 ---
 
