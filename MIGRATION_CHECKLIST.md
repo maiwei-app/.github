@@ -41,7 +41,7 @@
   - [x] ✅ `sonar-scan.yml` (job: `sonar`) — CI-based, usa `SONAR_TOKEN` + `SONAR_ORGANIZATION`, input `project-key`
   - [x] ✅ `no-ai-attribution.yml` (job: `check`) — portado 1:1 del step de `claude-sync/ci.yml`
   - Verificado vía API (`git/trees`)
-  - Backlog post-migración: `release-please.yml` (versionado), `inline-comments.yml`
+  - Backlog post-migración: ~~`release-please.yml` (versionado)~~ ✅ hecho 2026-08-15, ver sección dedicada más abajo; `inline-comments.yml` sigue pendiente
 - [x] ✅ Definir schema de custom properties en la org (verificado vía API):
   - [x] ✅ `ci-profile`: `python-quality | flutter-quality | hugo-static | none`
   - [x] ✅ `sonar-enabled`: `true | false` — **doble propósito desde 2026-08-14**: además de indicar si el `ci.yml` del repo llama a `sonar-scan.yml`, es ahora también el criterio de targeting del ruleset "Require SonarCloud Quality Gate" (ver más abajo). Todo repo con Sonar wired en su CI debe tener esta property en `true`, o el check dejará de ser bloqueante para mergear aunque corra igualmente. Repos verificados con `sonar-enabled=true`: `dev-to-backup`, `repo-template`, `workflows`. `.github` se queda deliberadamente en `false`/sin valor (no tiene CI ni código que analizar)
@@ -100,26 +100,84 @@ Descubrimos en vivo que GitHub bloquea la autoaprobación de PRs (ni por API ni 
 
 ---
 
-## Sem-Ver / Release-Please (pendiente implementación)
+## Sem-Ver / Release-Please (implementado y validado en 3 repos)
 
-**Estado:** Política definida en `~/.claude/CLAUDE.md` (MANDATORY, sección 10), NO IMPLEMENTADA en repos aún.
+**Estado (actualizado 2026-08-15):** funcionando de extremo a extremo en los
+3 repos que hoy viven en `maiwei-app`. Los 4 repos originales de la cola de
+migración (`dev-to-backup`, `colomr-v1-theme`, `chameleon`, `colomr.cc`) NO
+son lo mismo que "repos con release-please" — solo `dev-to-backup` está
+migrado hoy; los otros 3 siguen en `colomr-cc` personal y release-please
+ahí es tarea futura, parte de su propia migración (ver secciones de abajo).
 
-**Lo que existe:**
-- [x] ✅ Política fijada: Conventional Commits + release-please-action + sem-ver tags
-- [x] ✅ Workflows reusables: `ci-python.yml`, `ci-flutter.yml`, `ci-hugo.yml`, `sonar-scan.yml`, `no-ai-attribution.yml` en `maiwei-workflows`
-- [ ] ⬜ `release-please.yml` workflow (NO existe, backlog post-migración según MIGRATION_CHECKLIST line 44)
+| Repo | Release-please | Config validado contra schema real | Última release |
+|---|---|---|---|
+| `workflows` | ✅ | ✅ (corregido 2026-08-15) | v1.0.0 shipeada 2026-08-15; PR `chore(main): release 1.0.1` pendiente de merge |
+| `dev-to-backup` | ✅ | ✅ (corregido 2026-08-15) | v1.0.0 shipeada 2026-08-15; PR `chore(main): release 1.0.1` pendiente de merge |
+| `repo-template` | ✅ (de fábrica, para cualquier repo nuevo creado desde el template) | ✅ | primera release `0.1.0` pendiente de merge |
 
-**Lo que falta (bloqueante para releases):**
-- [ ] ⬜ `.release-please-config.json` (configuración global de sem-ver, tags, canales)
-- [ ] ⬜ Activar commitlint en CI para validar Conventional Commits format (`feat:`, `fix:`, `BREAKING CHANGE:`)
-- [ ] ⬜ Integrar `google/release-please-action` en workflows de cada repo (detecta cambios, auto-crea tags v1.2.3)
-- [ ] ⬜ Configurar tags múltiples: v1.2.3 (fija), v1 (última de serie), latest (global)
-- [ ] ⬜ Linter anti-SHA en CI: rechaza workflows con acciones pinneadas por SHA (`@61a6322`), solo acepta tags sem-ver (`@v4`, `@v4.2.1`)
+**Receta de 3 ficheros por repo** (usar exactamente esta forma, ya
+validada — ver `.release-please-config.json` real en cualquiera de los 3
+repos de arriba como referencia):
+- `.release-please-config.json` — claves reales del schema de
+  release-please en **kebab-case** (`release-type`,
+  `bump-minor-pre-major`, `changelog-sections` como array plano de
+  `{type, section, hidden}`). **No existe** la propiedad `repositoryUrl`
+  — la action resuelve la URL del repo sola vía `GITHUB_REPOSITORY`.
+- `.release-please-manifest.json` — `{".": "X.Y.Z"}`, versión de arranque
+  (`1.0.0` si el repo ya tenía código real en producción antes de adoptar
+  release-please; `0.1.0` si arranca de cero, coherente con
+  `bump-minor-pre-major: true`)
+- `.github/workflows/release.yml` — dispara en `push` a `main`, usa
+  `actions/create-github-app-token@v1` (App `maibot-app`, org var
+  `MAIBOT_APP_ID` + org secret `MAIBOT_APP_PRIVATE_KEY`, ambos scope "All
+  repositories") en vez de `secrets.GITHUB_TOKEN` — el token por defecto
+  no puede disparar checks `pull_request` en PRs que él mismo crea, así
+  que el PR de release se queda bloqueado sin este paso
 
-**Próximos pasos:**
-1. Implementar release-please en 1 repo piloto (`dev-to-backup` — simplest)
-2. Validar que los tags se crean automáticamente post-merge
-3. Extender a repos restantes
+**Bugs encontrados y corregidos en esta ronda (2026-08-14/15), todos ya
+arreglados en los 3 repos:**
+1. Acción mal referenciada: `google/release-please-action` no existe, es
+   `googleapis/release-please-action`
+2. Token por defecto no dispara checks en PRs auto-creados → App token
+3. `no-ai-attribution.yml` marcaba `maibot-app[bot]` como falso positivo
+   de autoría IA → excepción añadida
+4. `no-ai-attribution.yml` marcaba el footer estándar de release-please
+   ("generated with Release Please") como falso positivo → patrón
+   acotado a exigir nombre real de herramienta IA
+5. `repo-template` nunca había tenido un PR real que disparase su CI
+   completo — salieron 3 bugs latentes de golpe: `ci-python.yml` exigía
+   `requirements-ci.lock`/`tests/` que no existían; `secrets: inherit`
+   no mapea `sonar-token` (nombre distinto a `SONAR_TOKEN`); validación
+   JSON era solo sintaxis, no contra schema real
+6. **El más serio**: `.release-please-config.json` llevaba claves en
+   camelCase (`releaseType`, `bumpMinorPreMajor`, `repositoryUrl`,
+   `changelog.sections` anidado) que **no existen** en el schema real de
+   release-please (verificado contra `v17.6.1`, la versión que empaqueta
+   `release-please-action@v4`, y contra `v17.11.1`). Como
+   `additionalProperties: false` en la raíz, es muy probable que esas
+   claves se ignorasen en silencio desde el principio — la v1.0.0 de
+   `workflows`/`dev-to-backup` puede haberse generado con el
+   comportamiento por defecto de release-please, no con el ajuste fino
+   que creíamos haber configurado. Corregido en los 3 repos.
+
+**Mejoras de calidad que salieron de este trabajo** (ahora en
+`ci-python.yml`, compartido por todos los repos que lo llamen):
+- Validación JSON real contra schema (`check-jsonschema`), con mapa
+  fichero→schema documentado en el README de `workflows` — mantenerlo al
+  añadir nuevos tipos de fichero JSON con schema real
+- `pytest` tolera "no hay tests" solo si el repo no tiene ningún `.py` de
+  lógica real fuera de `tests/` — nunca tests placeholder para forzar un
+  check en verde
+
+**Pendiente, sin urgencia:**
+- [ ] ⬜ Extender release-please a `colomr-v1-theme`, `chameleon`,
+      `colomr.cc` cuando se migren a `maiwei-app` (no antes — no tiene
+      sentido instalarlo en un repo que sigue en `colomr-cc` personal)
+- [ ] ⬜ Configurar tags múltiples (v1.2.3 / v1 / latest) — release-please
+      ya crea el tag `vX.Y.Z`; los tags `v1`/`latest` rodantes no están
+      implementados todavía, evaluar si hacen falta de verdad
+- [ ] ⬜ Linter anti-SHA en CI (`lint-no-shas.yml` ya existe en
+      `workflows` — confirmar que corre en los repos migrados)
 
 ---
 
